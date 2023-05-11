@@ -1,0 +1,14 @@
+# dependencies
+node_modules
+.build
+.ts-build
+
+# altv-server
+altv-server/cache
+altv-server/data
+altv-server/modules
+altv-server/altv-server.exe
+altv-server/server.log
+altv-server/resources/main/*
+!altv-server/resources/main/resource.toml
+

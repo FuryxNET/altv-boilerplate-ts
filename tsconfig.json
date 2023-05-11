@@ -1,0 +1,20 @@
+{
+  "compilerOptions": {
+    "typeRoots": ["./node_modules/@types", "./node_modules/@altv"],
+    "removeComments": true,
+    "target": "esNext",
+    "module": "esNext",
+    "moduleResolution": "node",
+    "allowJs": true,
+    "allowSyntheticDefaultImports": true,
+    "declaration": false,
+    "outDir": "./.ts-build",
+    "rootDir": "./modules",
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./modules/*"],
+    }
+  },
+  "include": ["./modules/**/*.ts"],
+  "exclude": ["webview"]
+}

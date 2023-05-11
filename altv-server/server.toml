@@ -1,0 +1,15 @@
+host = '0.0.0.0'
+port = 7788
+
+debug = true
+announce = false
+
+players = 10
+language = 'ru'
+gamemode = 'v0.0.1'
+website = 'website.www'
+name = 'Project Name'
+description = 'Project Description'
+
+resources = [ 'main' ]
+modules = [ 'js-module' ]
