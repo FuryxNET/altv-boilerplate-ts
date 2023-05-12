@@ -2,9 +2,10 @@ import fs from 'fs-extra';
 import path from 'path';
 import { minify } from 'terser';
 
-const resourcePath = './altv-server/resources/main/';
-const tsBuildPath = './.ts-build';
+const resourcePath = './altv-server/resources/furyxnet/';
+const preBuildPath = './.prebuild';
 const buildPath = './.build';
+const modulesPath = './modules';
 
 async function clearFolders() {
   await fs.remove(buildPath);
@@ -20,11 +21,10 @@ async function buildModules() {
     client: [],
     server: [],
   };
-  const files = await fs.readdir(tsBuildPath);
+  const files = await fs.readdir(preBuildPath);
   for (const currentModuleName of files) {
-    const currentModulePath = path.join(tsBuildPath, currentModuleName);
+    const currentModulePath = path.join(preBuildPath, currentModuleName);
     for (const currentModuleFolder of await fs.readdir(currentModulePath)) {
-      if (currentModuleFolder === 'webview') continue;
       if (currentModuleFolder.includes('client') || currentModuleFolder.includes('server')) {
         importModules[currentModuleFolder].push(`import './${currentModuleName}/index.js'`);
       }
@@ -90,20 +90,35 @@ async function minifyJSFiles(directoryPath) {
     } else if (stats.isFile() && file.endsWith('.js')) {
       const code = await fs.readFile(filePath, 'utf8');
       const minified = await minify(code);
-      await fs.writeFile(filePath, minified.code);
+      fs.writeFile(filePath, minified.code);
     }
   }
+}
+
+async function copyOtherFiles(dir) {
+  const files = fs.readdirSync(dir);
+  files.forEach((file) => {
+    const filePath = path.join(dir, file);
+    if (filePath.includes('webview')) return;
+    if (path.extname(file) === '.ts') return;
+    if (fs.statSync(filePath).isDirectory()) {
+      copyOtherFiles(filePath);
+    } else {
+      fs.copySync(filePath, path.join(preBuildPath, path.relative(modulesPath, filePath)));
+    }
+  });
 }
 
 async function build() {
   const args = process.argv.slice(2);
   const minifiedFlag = args.includes('-m');
+  await copyOtherFiles(modulesPath);
   await clearFolders();
   await buildModules();
   await fixImports(buildPath);
   if (minifiedFlag) await minifyJSFiles(buildPath);
   await fs.copy(buildPath, resourcePath);
-  await fs.remove(tsBuildPath);
+  await fs.remove(preBuildPath);
 }
 
 build();

@@ -8,7 +8,7 @@
     "allowJs": true,
     "allowSyntheticDefaultImports": true,
     "declaration": false,
-    "outDir": "./.ts-build",
+    "outDir": "./.prebuild",
     "rootDir": "./modules",
     "baseUrl": ".",
     "paths": {
@@ -16,5 +16,5 @@
     }
   },
   "include": ["./modules/**/*.ts"],
-  "exclude": ["webview"]
+  "exclude": ["**/webview"]
 }
