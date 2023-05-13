@@ -2,7 +2,7 @@ import fs from 'fs-extra';
 import path from 'path';
 import { minify } from 'terser';
 
-const resourcePath = './altv-server/resources/furyxnet/';
+const resourcePath = './altv-server/resources/main/';
 const preBuildPath = './.prebuild';
 const buildPath = './.build';
 const modulesPath = './modules';
