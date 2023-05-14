@@ -1,3 +1,3 @@
-import Log from '@/tryImportMe/client/index.js'
+import Log from "@/tryImportMe/client/index.js";
 
-Log()
+Log();

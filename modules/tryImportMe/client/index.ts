@@ -1,5 +1,5 @@
-import * as alt from 'alt-client'
+import * as alt from "alt-client";
 
 export default () => {
-    alt.log('~lb~Client module working.')
-}
+  alt.log("~lb~Client module working.");
+};
