@@ -1,3 +1,3 @@
-import alt from 'alt-client'
+import Log from '@/tryImportMe/client/index.js'
 
-alt.log('~lb~Client module working.')
+Log()

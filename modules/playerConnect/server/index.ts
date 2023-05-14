@@ -1,6 +1,7 @@
-import alt from 'alt-server';
+import Log from '@/tryImportMe/server/index.js';
+import * as alt from 'alt-server';
 
-setTimeout(() => alt.log('~lb~Server module working.'));
+setTimeout(() => Log());
 
 alt.on('playerConnect', (player) => {
   player.model = 'mp_m_freemode_01';
