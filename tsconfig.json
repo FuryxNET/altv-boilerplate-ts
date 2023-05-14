@@ -1,20 +1,10 @@
 {
   "compilerOptions": {
     "typeRoots": ["./node_modules/@types", "./node_modules/@altv"],
-    "removeComments": true,
-    "target": "esNext",
-    "module": "esNext",
-    "moduleResolution": "node",
-    "allowJs": true,
-    "allowSyntheticDefaultImports": true,
-    "declaration": false,
-    "outDir": "./.prebuild",
-    "rootDir": "./modules",
     "baseUrl": ".",
+    "strict": true,
     "paths": {
-      "@/*": ["./modules/*"],
+      "@/*": ["./modules/*"]
     }
-  },
-  "include": ["./modules/**/*.ts"],
-  "exclude": ["**/webview"]
+  }
 }

@@ -1,18 +1,20 @@
-import fs from 'fs-extra';
-import path from 'path';
-import { minify } from 'terser';
+import swc from "@swc/core";
+import fs from "fs-extra";
+import { extname, join, sep } from "path";
+import { minify } from "terser";
 
-const resourcePath = './altv-server/resources/main/';
-const preBuildPath = './.prebuild';
-const buildPath = './.build';
-const modulesPath = './modules';
+const args = process.argv.slice(2);
+const minifiedFlag = args.includes("-m");
+const resourcePath = "./altv-server/resources/main/";
+const modulesPath = "./modules";
+const buildPath = "./.build";
 
 async function clearFolders() {
   await fs.remove(buildPath);
   const files = await fs.readdir(resourcePath);
   for (const file of files) {
-    if (file === 'resource.toml') continue;
-    await fs.remove(path.join(resourcePath, file));
+    if (file === "resource.toml") continue;
+    await fs.remove(join(resourcePath, file));
   }
 }
 
@@ -21,104 +23,96 @@ async function buildModules() {
     client: [],
     server: [],
   };
-  const files = await fs.readdir(preBuildPath);
+  const files = await fs.readdir(modulesPath);
   for (const currentModuleName of files) {
-    const currentModulePath = path.join(preBuildPath, currentModuleName);
+    const currentModulePath = join(modulesPath, currentModuleName);
     for (const currentModuleFolder of await fs.readdir(currentModulePath)) {
-      if (currentModuleFolder.includes('client') || currentModuleFolder.includes('server')) {
-        importModules[currentModuleFolder].push(`import './${currentModuleName}/index.js'`);
+      switch (currentModuleFolder) {
+        case "webview":
+          continue;
+        case "client":
+        case "server":
+          importModules[currentModuleFolder].push(`import './${currentModuleName}/index.js'`);
+          break;
       }
-      await fs.copy(path.join(currentModulePath, currentModuleFolder), path.join(buildPath, currentModuleFolder, currentModuleName));
+      await fs.copy(join(currentModulePath, currentModuleFolder), join(buildPath, currentModuleFolder, currentModuleName));
     }
   }
   await Promise.all([
-    fs.outputFile(path.join(buildPath, 'client/index.js'), importModules.client.join('\n')),
-    fs.outputFile(path.join(buildPath, 'server/index.js'), importModules.server.join('\n')),
+    fs.outputFile(join(buildPath, "client/index.js"), importModules.client.join("\n")),
+    fs.outputFile(join(buildPath, "server/index.js"), importModules.server.join("\n")),
   ]);
 }
 
 function replaceImport(importLine, filePath) {
-  const importSplit = importLine.split(' ');
-  importSplit[importSplit.length - 1] = importSplit[importSplit.length - 1].replace(/[';]/g, '');
-  const importPath = importSplit[importSplit.length - 1].split('/');
-  importPath[importPath.length - 1] = importPath[importPath.length - 1].trimEnd();
-  importPath.shift();
-  const folders = ['server', 'client', 'shared'];
-  folders.forEach((folder) => {
-    const folderIndex = importPath.indexOf(folder);
-    if (folderIndex > -1) {
-      importPath.splice(folderIndex, 1);
-      importPath.unshift(folder);
-    }
-  });
-  for (let i = 1; i < filePath.split(path.sep).length - 1; i++) importPath.unshift('..');
-  importSplit[importSplit.length - 1] = `'${importPath.join('/')}';`;
-  return importSplit.join(' ');
+  const importSplit = importLine.split(" ");
+  for (const key in importSplit) {
+    if (!importSplit[key].includes("@/")) continue;
+    const splitBySlash = importSplit[key].split("/");
+    [splitBySlash[1], splitBySlash[2]] = [splitBySlash[2], splitBySlash[1]];
+    importSplit[key] = splitBySlash.join("/");
+    const newPath = [];
+    for (let i = 1; i < filePath.split(sep).length - 1; i++) newPath.push("../");
+    importSplit[key] = importSplit[key].replace("@/", newPath.join(""));
+  }
+  return importSplit.join(" ");
 }
 
-async function fixImports(rootDir) {
-  const importSearch = "'@/";
-  const files = await fs.readdir(rootDir);
+async function fixImports(path) {
+  const files = await fs.readdir(path);
   for (const file of files) {
-    const filePath = path.join(rootDir, file);
+    const filePath = join(path, file);
     const stat = await fs.stat(filePath);
     if (stat.isDirectory()) {
-      await fixImports(filePath, importSearch);
-    } else if (stat.isFile() && path.extname(filePath) === '.js') {
-      const fileContent = await fs.readFile(filePath, 'utf-8');
-      if (fileContent.includes(importSearch)) {
-        const lines = fileContent.split('\n');
+      await fixImports(filePath);
+    } else if (stat.isFile() && extname(filePath) === ".ts") {
+      const fileContent = await fs.readFile(filePath, "utf-8");
+      if (fileContent.includes("import") && fileContent.includes("@/")) {
+        const lines = fileContent.split("\n");
         for (const line in lines) {
-          if (lines[line].includes(importSearch)) {
-            lines[line] = replaceImport(lines[line], filePath);
-          }
+          if (!lines[line].includes("import") || !lines[line].includes("@/")) continue;
+          lines[line] = replaceImport(lines[line], filePath);
         }
-        const updatedContent = lines.join('\n');
-        await fs.writeFile(filePath, updatedContent, 'utf-8');
+        await fs.writeFile(filePath, lines.join("\n"), "utf-8");
       }
     }
   }
 }
 
-async function minifyJSFiles(directoryPath) {
-  const files = await fs.readdir(directoryPath);
+async function compileTsFile(file) {
+  const input = await fs.readFile(file, "utf-8");
+  let output = await swc.transform(input, {
+    filename: file,
+    jsc: {
+      parser: { syntax: "typescript" },
+      target: "esnext",
+    },
+  });
+  const outputFilePath = file.replace(".ts", ".js");
+  if (minifiedFlag) output = await minify(output.code, { mangle: { module: true }, module: true });
+  fs.outputFileSync(outputFilePath, output.code, "utf-8");
+  fs.removeSync(file);
+}
+
+async function compileTypescript(path) {
+  const files = await fs.readdir(path);
   for (const file of files) {
-    const filePath = path.join(directoryPath, file);
+    const filePath = join(path, file);
     const stats = await fs.stat(filePath);
     if (stats.isDirectory()) {
-      minifyJSFiles(filePath);
-    } else if (stats.isFile() && file.endsWith('.js')) {
-      const code = await fs.readFile(filePath, 'utf8');
-      const minified = await minify(code);
-      fs.writeFile(filePath, minified.code);
+      await compileTypescript(filePath);
+    } else if (file.endsWith(".ts")) {
+      await compileTsFile(filePath);
     }
   }
 }
 
-async function copyOtherFiles(dir) {
-  const files = fs.readdirSync(dir);
-  files.forEach((file) => {
-    const filePath = path.join(dir, file);
-    if (filePath.includes('webview')) return;
-    if (path.extname(file) === '.ts') return;
-    if (fs.statSync(filePath).isDirectory()) {
-      copyOtherFiles(filePath);
-    } else {
-      fs.copySync(filePath, path.join(preBuildPath, path.relative(modulesPath, filePath)));
-    }
-  });
-}
-
 async function build() {
-  const args = process.argv.slice(2);
-  const minifiedFlag = args.includes('-m');
-  await copyOtherFiles(modulesPath);
   await clearFolders();
   await buildModules();
   await fixImports(buildPath);
-  if (minifiedFlag) await minifyJSFiles(buildPath);
+  await compileTypescript(buildPath);
   await fs.copy(buildPath, resourcePath);
-  await fs.remove(preBuildPath);
 }
 
 build();
